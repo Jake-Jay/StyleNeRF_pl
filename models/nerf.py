@@ -73,12 +73,15 @@ class NeRF(nn.Module):
                 layer = nn.Linear(W+in_channels_xyz, W)
             else:
                 layer = nn.Linear(W, W)
-            layer = nn.Sequential(layer, nn.ReLU(True))
             
             # freeze if stage 1
             layer.weight.requires_grad = freeze_sigma
             layer.bias.requires_grad = freeze_sigma
 
+            # Add activation
+            layer = nn.Sequential(layer, nn.ReLU(True))
+
+            # Save layer as an attribute with a tag
             setattr(self, f"xyz_encoding_{i+1}", layer)
         self.xyz_encoding_final = nn.Linear(W, W)
 
