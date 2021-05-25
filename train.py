@@ -29,6 +29,8 @@ class NeRFSystem(LightningModule):
         super(NeRFSystem, self).__init__()
         self.hparams = hparams
 
+        self.stage = hparams.stage
+
         self.loss = loss_dict[hparams.loss_type]()
 
         self.embedding_xyz = Embedding(3, 10) # 10 is the default number
@@ -36,9 +38,14 @@ class NeRFSystem(LightningModule):
         self.embeddings = [self.embedding_xyz, self.embedding_dir]
 
         self.nerf_coarse = NeRF()
+        if self.stage == 1:
+            load_ckpt(self.nerf_coarse, hparams.ckpt_path, model_name='nerf_coarse')
         self.models = [self.nerf_coarse]
+        
         if hparams.N_importance > 0:
             self.nerf_fine = NeRF()
+            if self.stage == 1:
+                load_ckpt(self.nerf_fine, hparams.ckpt_path, model_name='nerf_fine')
             self.models += [self.nerf_fine]
 
     def decode_batch(self, batch):
@@ -151,11 +158,11 @@ class NeRFSystem(LightningModule):
 if __name__ == '__main__':
     hparams = get_opts()
     system = NeRFSystem(hparams)
-    checkpoint_callback = ModelCheckpoint(filepath=os.path.join(f'ckpts/{hparams.exp_name}',
-                                                                '{epoch:d}'),
-                                          monitor='val/loss',
-                                          mode='min',
-                                          save_top_k=5,)
+    checkpoint_callback = ModelCheckpoint(
+        filepath=os.path.join(f'ckpts/{hparams.exp_name}','{epoch:d}'),
+        monitor='val/loss',
+        mode='min',
+        save_top_k=5,)
 
     logger = TestTubeLogger(
         save_dir="logs",
