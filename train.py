@@ -1,6 +1,7 @@
 import os, sys
 from opt import get_opts
 import torch
+import torchvision.transforms as transforms
 from collections import defaultdict
 
 from torch.utils.data import DataLoader
@@ -14,7 +15,7 @@ from models.rendering import render_rays
 from utils import *
 
 # losses
-from losses import loss_dict
+from losses import loss_dict, FeatureLoss
 
 # metrics
 from metrics import *
@@ -24,6 +25,17 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.logging import TestTubeLogger
 
+def image_loader(image_name, imsize):
+    image = Image.open(image_name)
+    loader = transforms.Compose([
+        transforms.Resize(imsize),  # scale imported image
+         transforms.ToTensor()]     # transform it into a torch tensor
+    )  
+
+    # fake batch dimension required to fit network's input dimensions
+    image = loader(image).unsqueeze(0)
+    return image.to(torch.float)
+
 class NeRFSystem(LightningModule):
     def __init__(self, hparams):
         super(NeRFSystem, self).__init__()
@@ -31,7 +43,10 @@ class NeRFSystem(LightningModule):
 
         self.stage = hparams.stage
 
-        self.loss = loss_dict[hparams.loss_type]()
+        if self.stage == 1:
+            self.loss = FeatureLoss()
+        else:
+            self.loss = loss_dict[hparams.loss_type]()
 
         self.embedding_xyz = Embedding(3, 10) # 10 is the default number
         self.embedding_dir = Embedding(3, 4) # 4 is the default number
@@ -39,6 +54,7 @@ class NeRFSystem(LightningModule):
 
         self.nerf_coarse = NeRF()
         if self.stage == 1:
+            # TODO I think loading is not neccesary if using PL Trainer's resume_from_checkpoint flag
             load_ckpt(self.nerf_coarse, hparams.ckpt_path, model_name='nerf_coarse')
         self.models = [self.nerf_coarse]
         
@@ -158,6 +174,8 @@ class NeRFSystem(LightningModule):
 if __name__ == '__main__':
     hparams = get_opts()
     system = NeRFSystem(hparams)
+
+    exit(0)
     checkpoint_callback = ModelCheckpoint(
         filepath=os.path.join(f'ckpts/{hparams.exp_name}','{epoch:d}'),
         monitor='val/loss',

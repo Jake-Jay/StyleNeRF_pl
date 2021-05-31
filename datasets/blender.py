@@ -9,9 +9,11 @@ from torchvision import transforms as T
 from .ray_utils import *
 
 class BlenderDataset(Dataset):
-    def __init__(self, root_dir, split='train', img_wh=(800, 800)):
+    def __init__(self, root_dir, split='train', stage = 'density', img_wh=(800, 800)):
         self.root_dir = root_dir
         self.split = split
+        assert stage in ['density', 'style'], 'invalid stage'
+        self.stage = stage
         assert img_wh[0] == img_wh[1], 'image width must equal image height!'
         self.img_wh = img_wh
         self.define_transforms()
@@ -39,7 +41,7 @@ class BlenderDataset(Dataset):
         self.directions = \
             get_ray_directions(h, w, self.focal) # (h, w, 3)
             
-        if self.split == 'train': # create buffer of all rays and rgb data
+        if self.split == 'train' and self.stage == 'density': # create buffer of all rays and rgb data
             self.image_paths = []
             self.poses = []
             self.all_rays = []
@@ -72,18 +74,18 @@ class BlenderDataset(Dataset):
         self.transform = T.ToTensor()
 
     def __len__(self):
-        if self.split == 'train':
+        if self.split == 'train' and self.stage == 'density':
             return len(self.all_rays)
         if self.split == 'val':
             return 8 # only validate 8 images (to support <=8 gpus)
         return len(self.meta['frames'])
 
     def __getitem__(self, idx):
-        if self.split == 'train': # use data in the buffers
+        if self.split == 'train' and self.stage == 'density': # use data in the buffers
             sample = {'rays': self.all_rays[idx],
                       'rgbs': self.all_rgbs[idx]}
 
-        else: # create data for each image separately
+        else: # create data for each image separately for validation and style training
             frame = self.meta['frames'][idx]
             c2w = torch.FloatTensor(frame['transform_matrix'])[:3, :4]
 
