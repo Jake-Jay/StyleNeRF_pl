@@ -62,7 +62,7 @@ class NeRF(nn.Module):
         self.skips = skips
         self.stage = stage
 
-        freeze_sigma = (self.stage == 'style')
+        train_sigma = (self.stage == 'density')
 
         # xyz encoding layers
         for i in range(D):
@@ -74,8 +74,8 @@ class NeRF(nn.Module):
                 layer = nn.Linear(W, W)
             
             # freeze if in style stage 
-            layer.weight.requires_grad = freeze_sigma
-            layer.bias.requires_grad = freeze_sigma
+            layer.weight.requires_grad = train_sigma
+            layer.bias.requires_grad = train_sigma
 
             # Add activation
             layer = nn.Sequential(layer, nn.ReLU(True))

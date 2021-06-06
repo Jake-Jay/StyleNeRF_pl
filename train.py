@@ -1,4 +1,6 @@
 import os, sys
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 from opt import get_opts
 import torch
 import torchvision.transforms as transforms
@@ -69,7 +71,7 @@ class NeRFSystem(LightningModule):
     def decode_batch(self, batch):
         rays = batch['rays'] # (B, 8)
         rgbs = batch['rgbs'] # (B, 3)
-        # TODO you can also collect the valid mask here
+        # TODO you can also collect the valid mask here during val/style
         
         return rays, rgbs
 
