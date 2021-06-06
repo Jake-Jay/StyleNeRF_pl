@@ -36,9 +36,9 @@ def get_scheduler(hparams, optimizer):
                                 gamma=hparams.decay_gamma)
     elif hparams.lr_scheduler == 'cosine':
         scheduler = CosineAnnealingLR(optimizer, T_max=hparams.num_epochs, eta_min=eps)
-    elif hparams.lr_scheduler == 'poly':
-        scheduler = LambdaLR(optimizer, 
-                             lambda epoch: (1-epoch/hparams.num_epochs)**hparams.poly_exp)
+    # elif hparams.lr_scheduler == 'poly':
+    #     scheduler = LambdaLR(optimizer, 
+    #                          lambda epoch: (1-epoch/hparams.num_epochs)**hparams.poly_exp)
     else:
         raise ValueError('scheduler not recognized!')
 

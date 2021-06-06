@@ -1,6 +1,7 @@
 import os, sys
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"]="2"
+
 from opt import get_opts
 import torch
 import torchvision.transforms as transforms
@@ -46,7 +47,15 @@ class NeRFSystem(LightningModule):
         self.stage = hparams.stage
 
         if self.stage == 'style':
-            self.loss = FeatureLoss()
+            self.style_img = image_loader(
+                image_name="./style_images/picasso.jpg",
+                imsize=self.hparams.img_wh[0]
+            )
+            self.loss = FeatureLoss(
+                style_img=self.style_img,
+                style_weight=1000000,
+                content_weight=1
+            )
         else:
             self.loss = loss_dict[hparams.loss_type]()
 
@@ -56,7 +65,6 @@ class NeRFSystem(LightningModule):
 
         self.nerf_coarse = NeRF(stage=self.stage)
         if self.stage == 'style':
-            # TODO I think loading is not neccesary if using PL Trainer's resume_from_checkpoint flag
             load_ckpt(self.nerf_coarse, hparams.ckpt_path, model_name='nerf_coarse')
         self.models = [self.nerf_coarse]
         
@@ -65,8 +73,6 @@ class NeRFSystem(LightningModule):
             if self.stage == 'style':
                 load_ckpt(self.nerf_fine, hparams.ckpt_path, model_name='nerf_fine')
             self.models += [self.nerf_fine]
-
-        # TODO load the style image
 
     def decode_batch(self, batch):
         rays = batch['rays'] # (B, 8)
@@ -158,10 +164,16 @@ class NeRFSystem(LightningModule):
 
     def validation_step(self, batch, batch_nb):
         rays, rgbs = self.decode_batch(batch)
-        rays = rays.squeeze() # (H*W, 3)
+        rays = rays.squeeze() # (H*W, 3) - I see 8?
         rgbs = rgbs.squeeze() # (H*W, 3)
         results = self(rays)
-        log = {'val_loss': self.loss(results, rgbs)}
+        course_loss = self.loss(results['rgb_coarse'], rgbs)
+        if 'rgb_fine' in results:
+            fine_loss = self.loss(results['rgb_fine'], rgbs)
+            loss = fine_loss + course_loss
+        else:
+            loss = course_loss
+        log = {'val_loss': loss}
         typ = 'fine' if 'rgb_fine' in results else 'coarse'
     
         if batch_nb == 0:
@@ -207,7 +219,7 @@ if __name__ == '__main__':
 
     trainer = Trainer(max_epochs=hparams.num_epochs,
                       checkpoint_callback=checkpoint_callback,
-                      resume_from_checkpoint=hparams.ckpt_path,
+                    #   resume_from_checkpoint=hparams.ckpt_path,
                       logger=logger,
                       early_stop_callback=None,
                       weights_summary=None,
@@ -219,3 +231,4 @@ if __name__ == '__main__':
                       profiler=hparams.num_gpus==1)
 
     trainer.fit(system)
+

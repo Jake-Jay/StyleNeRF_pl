@@ -85,7 +85,7 @@ class BlenderDataset(Dataset):
             sample = {'rays': self.all_rays[idx],
                       'rgbs': self.all_rgbs[idx]}
 
-        else: # create data for each image separately for validation and style training
+        else: # create data for each image separately for validation or for style training
             frame = self.meta['frames'][idx]
             c2w = torch.FloatTensor(frame['transform_matrix'])[:3, :4]
 
