@@ -45,14 +45,14 @@ class NeRF(nn.Module):
                  in_channels_xyz=63, 
                  in_channels_dir=27, 
                  skips=[4],
-                 stage=0):
+                 stage='density'):
         """
         D: number of layers for density (sigma) encoder
         W: number of hidden units in each layer
         in_channels_xyz: number of input channels for xyz (3+3*10*2=63 by default)
         in_channels_dir: number of input channels for direction (3+3*4*2=27 by default)
         skips: add skip connection in the Dth layer
-        stage: one of [0,1] for different training modes
+        stage: one of ['density', 'style'] for different training modes
         """
         super(NeRF, self).__init__()
         self.D = D
@@ -62,8 +62,7 @@ class NeRF(nn.Module):
         self.skips = skips
         self.stage = stage
 
-        freeze_sigma = (self.stage == 1)
-
+        freeze_sigma = (self.stage == 'style')
 
         # xyz encoding layers
         for i in range(D):
@@ -74,7 +73,7 @@ class NeRF(nn.Module):
             else:
                 layer = nn.Linear(W, W)
             
-            # freeze if stage 1
+            # freeze if in style stage 
             layer.weight.requires_grad = freeze_sigma
             layer.bias.requires_grad = freeze_sigma
 

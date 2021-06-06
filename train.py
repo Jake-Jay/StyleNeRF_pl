@@ -43,7 +43,7 @@ class NeRFSystem(LightningModule):
 
         self.stage = hparams.stage
 
-        if self.stage == 1:
+        if self.stage == 'style':
             self.loss = FeatureLoss()
         else:
             self.loss = loss_dict[hparams.loss_type]()
@@ -52,21 +52,25 @@ class NeRFSystem(LightningModule):
         self.embedding_dir = Embedding(3, 4) # 4 is the default number
         self.embeddings = [self.embedding_xyz, self.embedding_dir]
 
-        self.nerf_coarse = NeRF()
-        if self.stage == 1:
+        self.nerf_coarse = NeRF(stage=self.stage)
+        if self.stage == 'style':
             # TODO I think loading is not neccesary if using PL Trainer's resume_from_checkpoint flag
             load_ckpt(self.nerf_coarse, hparams.ckpt_path, model_name='nerf_coarse')
         self.models = [self.nerf_coarse]
         
         if hparams.N_importance > 0:
-            self.nerf_fine = NeRF()
-            if self.stage == 1:
+            self.nerf_fine = NeRF(stage=self.stage)
+            if self.stage == 'style':
                 load_ckpt(self.nerf_fine, hparams.ckpt_path, model_name='nerf_fine')
             self.models += [self.nerf_fine]
+
+        # TODO load the style image
 
     def decode_batch(self, batch):
         rays = batch['rays'] # (B, 8)
         rgbs = batch['rgbs'] # (B, 3)
+        # TODO you can also collect the valid mask here
+        
         return rays, rgbs
 
     def forward(self, rays):
@@ -100,8 +104,17 @@ class NeRFSystem(LightningModule):
         if self.hparams.dataset_name == 'llff':
             kwargs['spheric_poses'] = self.hparams.spheric_poses
             kwargs['val_num'] = self.hparams.num_gpus
-        self.train_dataset = dataset(split='train', **kwargs)
-        self.val_dataset = dataset(split='val', **kwargs)
+        
+        self.train_dataset = dataset(
+            split='train', 
+            stage=self.stage,
+            **kwargs
+        )
+        self.val_dataset = dataset(
+            split='val',
+            stage=self.stage,
+            **kwargs
+        )
 
     def configure_optimizers(self):
         self.optimizer = get_optimizer(self.hparams, self.models)
@@ -125,8 +138,10 @@ class NeRFSystem(LightningModule):
     
     def training_step(self, batch, batch_nb):
         log = {'lr': get_learning_rate(self.optimizer)}
+
         rays, rgbs = self.decode_batch(batch)
         results = self(rays)
+
         log['train/loss'] = loss = self.loss(results, rgbs)
         typ = 'fine' if 'rgb_fine' in results else 'coarse'
 
@@ -175,7 +190,6 @@ if __name__ == '__main__':
     hparams = get_opts()
     system = NeRFSystem(hparams)
 
-    exit(0)
     checkpoint_callback = ModelCheckpoint(
         filepath=os.path.join(f'ckpts/{hparams.exp_name}','{epoch:d}'),
         monitor='val/loss',
@@ -197,7 +211,7 @@ if __name__ == '__main__':
                       weights_summary=None,
                       progress_bar_refresh_rate=1,
                       gpus=hparams.num_gpus,
-                      distributed_backend='ddp' if hparams.num_gpus>1 else None,
+                      distributed_backend= None,
                       num_sanity_val_steps=1,
                       benchmark=True,
                       profiler=hparams.num_gpus==1)
