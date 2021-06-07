@@ -172,6 +172,15 @@ def render_rays(models,
         return rgb_final, depth_final, weights
 
 
+    # validation step
+    # - rays.shape = ([7232, 8] or [32768, 8]) since the chunk size is 32768
+
+    # train step
+    # - rays.shape = [1,40000,8] -> will generate an issue with N_rays = 1
+    # Changed using a squeeze in train step to:
+    # - rays.shape = [32768, 8]
+
+
     # Extract models from lists
     model_coarse = models[0]
     embedding_xyz = embeddings[0]
@@ -180,7 +189,7 @@ def render_rays(models,
     # Decompose the inputs
     N_rays = rays.shape[0]
     rays_o, rays_d = rays[:, 0:3], rays[:, 3:6] # both (N_rays, 3)
-    near, far = rays[:, 6:7], rays[:, 7:8] # both (N_rays, 1)
+    near, far = rays[:, 6:7], rays[:, 7:8]      # both (N_rays, 1)
 
     # Embed direction
     dir_embedded = embedding_dir(rays_d) # (N_rays, embed_dir_channels)

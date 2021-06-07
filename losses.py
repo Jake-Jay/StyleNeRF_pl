@@ -35,8 +35,8 @@ class FeatureLoss(LightningModule):
 
         content_layers_default = ['conv_4']
         style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
-        normalization_mean_default = torch.tensor([0.485, 0.456, 0.406])
-        normalization_std_default = torch.tensor([0.229, 0.224, 0.225])
+        normalization_mean_default = torch.tensor([0.485, 0.456, 0.406], device=self.device)
+        normalization_std_default = torch.tensor([0.229, 0.224, 0.225], device=self.device)
 
         # Load the VGG
         # model_file = 'vgg19.pt'
@@ -45,7 +45,7 @@ class FeatureLoss(LightningModule):
         #     cnn = torch.load(model_file)
         # else:
         print('Downloading vgg19')
-        cnn = models.vgg19(pretrained=True)
+        cnn = models.vgg19(pretrained=True).to(self.device)
         # torch.save(cnn, model_file)
 
         self.cnn = cnn.features.eval()
@@ -62,8 +62,8 @@ class FeatureLoss(LightningModule):
     def forward(self, input_img, content_img):
 
         # collect feature loss tensors for the target/content image
-        # self.style_model(content_img)
-        # target_content_features = [cf.content_feature for cf in self.content_features]
+        self.style_model(content_img)
+        target_content_features = [cf.content_feature for cf in self.content_features]
 
         # another forward pass for the input image
         self.style_model(input_img)
@@ -176,6 +176,10 @@ class StyleLoss(LightningModule):
         self.target = self._gram_matrix(target_feature).detach()
 
     def forward(self, input):
+        if self.target.device.type == 'cpu':
+            # TODO avoid doing this
+            self.target = self.target.to(self.device)
+
         G = self._gram_matrix(input)
         self.loss = F.mse_loss(G, self.target)
         return input
@@ -193,7 +197,7 @@ class StyleLoss(LightningModule):
         # 'normalize' the gram matrix by dividing by size of the feature map
         return G.div(a * b * c * d)
 
-class Normalization(nn.Module):
+class Normalization(LightningModule):
     '''VGG Normalisation (pretrained models expect this)'''
 
     def __init__(self, mean, std):
@@ -201,11 +205,16 @@ class Normalization(nn.Module):
         # .view the mean and std to make them [C x 1 x 1] so that they can
         # directly work with image Tensor of shape [B x C x H x W].
         # B is batch size. C is number of channels. H is height and W is width.
-        self.mean = mean.view(-1, 1, 1)
-        self.std = std.view(-1, 1, 1)
+        self.mean = mean.view(-1, 1, 1).to(self.device)
+        self.std = std.view(-1, 1, 1).to(self.device)
 
     def forward(self, img):
         # normalize img
+        if self.mean.device.type == 'cpu':
+            # TODO avoid doing this
+            self.mean = self.mean.to(self.device)
+            self.std = self.std.to(self.device)
+
         return (img - self.mean) / self.std
 
 

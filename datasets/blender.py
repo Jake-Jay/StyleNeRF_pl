@@ -103,8 +103,8 @@ class BlenderDataset(Dataset):
                               self.far*torch.ones_like(rays_o[:, :1])],
                               1) # (H*W, 8)
 
-            sample = {'rays': rays,
-                      'rgbs': img,
+            sample = {'rays': rays, # (H*W, 8)
+                      'rgbs': img,  # (H*W, 3)
                       'c2w': c2w,
                       'valid_mask': valid_mask}
 

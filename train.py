@@ -1,6 +1,6 @@
 import os, sys
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 from opt import get_opts
 import torch
@@ -26,7 +26,7 @@ from metrics import *
 # pytorch-lightning
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.logging import TestTubeLogger
+from pytorch_lightning.loggers.test_tube import TestTubeLogger
 
 def image_loader(image_name, imsize):
     image = Image.open(image_name)
@@ -79,6 +79,14 @@ class NeRFSystem(LightningModule):
         rgbs = batch['rgbs'] # (B, 3)
         # TODO you can also collect the valid mask here during val/style
         
+        # validation step (stage = style):
+        # - rays.shape = [1, w*h, 8]
+        # - rgbs.shape =[1, w*h, 3]
+
+        # train step (stage = style):
+        # - rays.shape = [1, w*h, 8]
+        # - rgbs.shape =[1, w*h, 3]
+
         return rays, rgbs
 
     def forward(self, rays):
@@ -131,26 +139,60 @@ class NeRFSystem(LightningModule):
         return [self.optimizer], [scheduler]
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset,
-                          shuffle=True,
-                          num_workers=4,
-                          batch_size=self.hparams.batch_size,
-                          pin_memory=True)
+        if self.stage == 'density':
+            return DataLoader(
+                self.train_dataset,
+                shuffle=True,
+                num_workers=4,
+                batch_size=self.hparams.batch_size,
+                pin_memory=True
+            )
+        elif self.stage == 'style':
+            return DataLoader(
+                self.train_dataset,
+                shuffle=True,
+                num_workers=4,
+                batch_size=1, # style one image at a time
+                pin_memory=True
+            )
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset,
                           shuffle=False,
-                          num_workers=4,
+                          num_workers=1, # set back to 4 after debug
                           batch_size=1, # validate one image (H*W rays) at a time
                           pin_memory=True)
     
     def training_step(self, batch, batch_nb):
         log = {'lr': get_learning_rate(self.optimizer)}
 
-        rays, rgbs = self.decode_batch(batch)
-        results = self(rays)
+        
 
-        log['train/loss'] = loss = self.loss(results, rgbs)
+        if self.stage == 'density':
+            rays, rgbs = self.decode_batch(batch)
+            results = self(rays)
+            log['train/loss'] = loss = self.loss(results, rgbs)
+        
+        elif self.stage == 'style':
+            rays, rgbs = self.decode_batch(batch)
+            rays = rays.squeeze() # (H*W, 8)
+            rgbs = rgbs.squeeze() # (H*W, 3)
+            results = self(rays)
+            target = self._prepare_for_feature_loss(rgbs) #(1,3,W,H)
+
+            course_result = self._prepare_for_feature_loss(results['rgb_coarse']) #(1,3,W,H)
+            course_loss, _, _ = self.loss(course_result, target)
+
+            if 'rgb_fine' in results:
+                fine_result = self._prepare_for_feature_loss(results['rgb_fine']) #(1,3,W,H)
+                fine_loss, _, _  = self.loss(fine_result, target)
+                loss = fine_loss + course_loss
+            else:
+                loss = course_loss
+
+            log['train/loss'] = loss
+
+        
         typ = 'fine' if 'rgb_fine' in results else 'coarse'
 
         with torch.no_grad():
@@ -161,19 +203,39 @@ class NeRFSystem(LightningModule):
                 'progress_bar': {'train_psnr': psnr_},
                 'log': log
                }
+    
+    def _prepare_for_feature_loss(self, img:torch.tensor):
+        '''img of shape (H*W, 3) -> (1, 3, w, h)'''
+        img = img.permute(1,0) #(3, H*W)
+        img = img.view(3, self.hparams.img_wh[0], self.hparams.img_wh[1]) #(3,W,H)
+        img = img.unsqueeze(0) # (1,3,W,H)
+        return img
+
 
     def validation_step(self, batch, batch_nb):
         rays, rgbs = self.decode_batch(batch)
-        rays = rays.squeeze() # (H*W, 3) - I see 8?
+        rays = rays.squeeze() # (H*W, 8)
         rgbs = rgbs.squeeze() # (H*W, 3)
         results = self(rays)
-        course_loss = self.loss(results['rgb_coarse'], rgbs)
-        if 'rgb_fine' in results:
-            fine_loss = self.loss(results['rgb_fine'], rgbs)
-            loss = fine_loss + course_loss
-        else:
-            loss = course_loss
-        log = {'val_loss': loss}
+
+        if self.stage == 'density':
+            log = {'val_loss': self.loss(results, rgbs)}
+        
+        elif self.stage == 'style':
+            target = self._prepare_for_feature_loss(rgbs) #(1,3,W,H)
+
+            course_result = self._prepare_for_feature_loss(results['rgb_coarse']) #(1,3,W,H)
+            course_loss, _, _ = self.loss(course_result, target)
+
+            if 'rgb_fine' in results:
+                fine_result = self._prepare_for_feature_loss(results['rgb_fine']) #(1,3,W,H)
+                fine_loss, _, _  = self.loss(fine_result, target)
+                loss = fine_loss + course_loss
+            else:
+                loss = course_loss
+
+            log = {'val_loss': loss}
+
         typ = 'fine' if 'rgb_fine' in results else 'coarse'
     
         if batch_nb == 0:
@@ -205,7 +267,7 @@ if __name__ == '__main__':
     system = NeRFSystem(hparams)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.path.join(f'ckpts/{hparams.exp_name}','{epoch:d}'),
+        dirpath=os.path.join(f'ckpts/{hparams.exp_name}','{epoch:d}'),
         monitor='val/loss',
         mode='min',
         save_top_k=5,)
@@ -221,7 +283,7 @@ if __name__ == '__main__':
                       checkpoint_callback=checkpoint_callback,
                     #   resume_from_checkpoint=hparams.ckpt_path,
                       logger=logger,
-                      early_stop_callback=None,
+                    #   early_stop_callback=None,
                       weights_summary=None,
                       progress_bar_refresh_rate=1,
                       gpus=hparams.num_gpus,
