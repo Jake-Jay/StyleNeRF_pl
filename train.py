@@ -47,8 +47,10 @@ class NeRFSystem(LightningModule):
         self.stage = hparams.stage
 
         if self.stage == 'style':
+            style_img_path = self.hparams.style_img
+            print(style_img_path)
             self.style_img = image_loader(
-                image_name="./style_images/picasso.jpg",
+                image_name=style_img_path,
                 imsize=self.hparams.img_wh[0]
             )
             self.loss = FeatureLoss(
@@ -165,9 +167,6 @@ class NeRFSystem(LightningModule):
     
     def training_step(self, batch, batch_nb):
         log = {'lr': get_learning_rate(self.optimizer)}
-
-        
-
         if self.stage == 'density':
             rays, rgbs = self.decode_batch(batch)
             results = self(rays)
@@ -210,7 +209,6 @@ class NeRFSystem(LightningModule):
         img = img.view(3, self.hparams.img_wh[0], self.hparams.img_wh[1]) #(3,W,H)
         img = img.unsqueeze(0) # (1,3,W,H)
         return img
-
 
     def validation_step(self, batch, batch_nb):
         rays, rgbs = self.decode_batch(batch)

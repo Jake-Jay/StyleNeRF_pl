@@ -89,8 +89,12 @@ class NeRF(nn.Module):
                                 nn.Linear(W+in_channels_dir, W//2),
                                 nn.ReLU(True))
 
-        # output layers
+        # output density layer (freeze if in style stage )
         self.sigma = nn.Linear(W, 1)
+        self.sigma.weight.requires_grad = train_sigma
+        self.sigma.bias.requires_grad = train_sigma
+
+        # output color layers
         self.rgb = nn.Sequential(
                         nn.Linear(W//2, 3),
                         nn.Sigmoid())

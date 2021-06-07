@@ -78,4 +78,8 @@ def get_opts():
     parser.add_argument('--stage', type=str, default=0,
                         help='training stage', choices=['density','style'])
 
+    parser.add_argument('--style_img', type=str, default=None,
+                        help='path to styling image')
+
+
     return parser.parse_args()
