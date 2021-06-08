@@ -61,8 +61,8 @@ class NeRFSystem(LightningModule):
         else:
             self.loss = loss_dict[hparams.loss_type]()
 
-        self.embedding_xyz = Embedding(3, 10) # 10 is the default number
-        self.embedding_dir = Embedding(3, 4) # 4 is the default number
+        self.embedding_xyz = Embedding(3, 10)   # 10 is the default number
+        self.embedding_dir = Embedding(3, 4)    # 4 is the default number
         self.embeddings = [self.embedding_xyz, self.embedding_dir]
 
         self.nerf_coarse = NeRF(stage=self.stage)
@@ -161,7 +161,7 @@ class NeRFSystem(LightningModule):
     def val_dataloader(self):
         return DataLoader(self.val_dataset,
                           shuffle=False,
-                          num_workers=1, # set back to 4 after debug
+                          num_workers=4, # set back to 4 after debug
                           batch_size=1, # validate one image (H*W rays) at a time
                           pin_memory=True)
     
@@ -191,17 +191,16 @@ class NeRFSystem(LightningModule):
 
             log['train/loss'] = loss
 
-        
         typ = 'fine' if 'rgb_fine' in results else 'coarse'
 
         with torch.no_grad():
             psnr_ = psnr(results[f'rgb_{typ}'], rgbs)
             log['train/psnr'] = psnr_
 
-        return {'loss': loss,
-                'progress_bar': {'train_psnr': psnr_},
-                'log': log
-               }
+        self.log('train/loss', loss, prog_bar=True)
+        self.log('train/psnr', psnr_, prog_bar=True)
+        
+        return loss
     
     def _prepare_for_feature_loss(self, img:torch.tensor):
         '''img of shape (H*W, 3) -> (1, 3, w, h)'''
@@ -253,11 +252,14 @@ class NeRFSystem(LightningModule):
         mean_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         mean_psnr = torch.stack([x['val_psnr'] for x in outputs]).mean()
 
-        return {'progress_bar': {'val_loss': mean_loss,
-                                 'val_psnr': mean_psnr},
-                'log': {'val/loss': mean_loss,
-                        'val/psnr': mean_psnr}
-               }
+        self.log('val/loss', mean_loss, prog_bar=True)
+        self.log('val/psnr', mean_psnr, prog_bar=True)
+
+        # return {'progress_bar': {'val_loss': mean_loss,
+        #                          'val_psnr': mean_psnr},
+        #         'log': {'val/loss': mean_loss,
+        #                 'val/psnr': mean_psnr}
+        #        }
 
 
 if __name__ == '__main__':
@@ -277,18 +279,19 @@ if __name__ == '__main__':
         create_git_tag=False
     )
 
-    trainer = Trainer(max_epochs=hparams.num_epochs,
-                      checkpoint_callback=checkpoint_callback,
-                    #   resume_from_checkpoint=hparams.ckpt_path,
-                      logger=logger,
-                    #   early_stop_callback=None,
-                      weights_summary=None,
-                      progress_bar_refresh_rate=1,
-                      gpus=hparams.num_gpus,
-                      distributed_backend= None,
-                      num_sanity_val_steps=1,
-                      benchmark=True,
-                      profiler=hparams.num_gpus==1)
+    trainer = Trainer(
+        max_epochs=hparams.num_epochs,
+        checkpoint_callback=checkpoint_callback,
+    #   resume_from_checkpoint=hparams.ckpt_path, # causes problems with 2 stage training
+        logger=logger,
+        weights_summary=None,
+        progress_bar_refresh_rate=1,
+        gpus=hparams.num_gpus,
+        distributed_backend= None,
+        num_sanity_val_steps=1,
+        benchmark=True,
+        profiler=hparams.num_gpus==1
+    )
 
     trainer.fit(system)
 
