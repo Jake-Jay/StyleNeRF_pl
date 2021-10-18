@@ -74,21 +74,20 @@ python eval.py \
 
 Given a sparce set of images of a Lego truck, NeRF can generate a volumetric representation of the scene. This representation can be used to generate novel views of the scene facilitating the creation of continuous three dimensional views of an object such as the one seen below.
 
-![unstyled gif of a truck](./assets/nostyle.gif)
-
+![Unstyled gif of a truck](../assets/nostyle.gif?raw=true) 
 
 This representation can then be manipulated using a styling image.
 
 
 Styling Image             |  Styled 3D Output
 :-------------------------:|:-------------------------:
-<img src="./assets/wheatfield.jpg" alt="van_gogh" width="200"/>  |  ![](./assets/wheatfield.gif)
-<img src="./assets/boccioni.jpg" alt="van_gogh" width="200"/> | ![](./assets/boccioni.gif)
+<img src="./assets/wheatfield.jpg" alt="van_gogh" width="200"/>  |  ![](../assets/wheatfield.gif?raw=true)
+<img src="./assets/boccioni.jpg" alt="van_gogh" width="200"/> | ![](../assets/boccioni.gif?raw=true)
 
 
 One of the main goals was to maintain styling consistency which is invariant to the viewing direction. This is demonstrated below:
 
-![consistency](./assets/consistency.png)
+![consistency](../assets/consistency.png?raw=true)
 
 ## Credits
 Contributors are [Jake Pencharz](https://github.com/Jake-Jay/) and 
