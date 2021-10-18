@@ -10,6 +10,8 @@ Our implementation is composed of two stages:
 
 This approach takes advantage of the way that NeRF isolates the scene's density in a 'head' of the model which is seperate from the 'head' of the model that generates the view dependent color. Stage 1 is used to tune the parts of the model which describe the scene's density (the geometry of the object). Stage 2 freezes those layers and slowly updates the color generating layers based on a combined content and style loss.
 
+For details you can read [our paper](./assets/adl4cv_stylenerf.pdf).
+
 ## Software
 
 * Clone this repo by
