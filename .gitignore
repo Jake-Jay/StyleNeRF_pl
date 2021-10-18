@@ -4,6 +4,7 @@ ckpts/
 results/
 *.ply
 *.vol
+**/.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

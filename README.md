@@ -1,5 +1,7 @@
 # Style NeRF
 
+![](./assets/title_figure.png)
+
 An extension of [NeRF](https://arxiv.org/pdf/2003.08934.pdf) (Neural Radiance Fields) to apply 3D style transfer using pytorch ([pytorch-lightning](https://github.com/PyTorchLightning/pytorch-lightning)). The [Neural Style algorithm](https://arxiv.org/abs/1508.06576) is based on the loss network proposed by Leon A. Gatys, Alexander S. Ecker and Matthias Bethge.
 
 Our implementation is composed of two stages:
@@ -10,18 +12,28 @@ This approach takes advantage of the way that NeRF isolates the scene's density 
 
 ## Software
 
-* Clone this repo by `git clone --recursive https://github.com/Jake-Jay/StyleNeRF_pl`
-* Python>=3.6 (installation via [anaconda](https://www.anaconda.com/distribution/) is recommended, use `conda create -n nerf_pl python=3.6` to create a conda environment and activate it by `conda activate nerf_pl`)
+* Clone this repo by
+
+    ```git clone --recursive https://github.com/Jake-Jay/StyleNeRF_pl```
+* Python>=3.6 is used. Installation via [anaconda](https://www.anaconda.com/distribution/) is recommended. To recreate the conda environment run:
+
+    ```conda create -n nerf_pl python=3.6``` 
+
+    Activate the environment it by running:
+    
+    ```conda activate nerf_pl```
 * Python libraries
     * Install core requirements by `pip install -r requirements.txt`
     * Install `torchsearchsorted` by `cd torchsearchsorted` then `pip install .`
 
 ## Data
 
-Download `nerf_synthetic.zip` from [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1).
+Download the lego truck dataset, `nerf_synthetic.zip`, [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1).
 
 
 ## Training
+
+Training is implemented in two stages. The first stage trains the density head of the model to capture the scene geometry. The second stage then used a style loss network to style the scene according to any 2D image.
 
 **Stage 1 (density stage):**
 ```
@@ -62,7 +74,7 @@ python eval.py \
 
 Given a sparce set of images of a Lego truck, NeRF can generate a volumetric representation of the scene. This representation can be used to generate novel views of the scene facilitating the creation of continuous three dimensional views of an object such as the one seen below.
 
-![](./assets/lego_med_nostyle.gif)
+![unstyled gif of a truck](./assets/nostyle.gif)
 
 
 This representation can then be manipulated using a styling image.
@@ -70,12 +82,16 @@ This representation can then be manipulated using a styling image.
 
 Styling Image             |  Styled 3D Output
 :-------------------------:|:-------------------------:
-<img src="./assets/van_gogh_wheatfield.jpg" alt="van_gogh" width="100"/>  |  ![](./assets/lego_van_gogh_wheatfield.gif)
-<img src="./assets/grass.jpg" alt="van_gogh" width="100"/> | ![](./assets/lego_med_grass.gif)
+<img src="./assets/wheatfield.jpg" alt="van_gogh" width="200"/>  |  ![](./assets/wheatfield.gif)
+<img src="./assets/boccioni.jpg" alt="van_gogh" width="200"/> | ![](./assets/boccioni.gif)
 
+
+One of the main goals was to maintain styling consistency which is invariant to the viewing direction. This is demonstrated below:
+
+![consistency](./assets/consistency.png)
 
 ## Credits
-This is a work in progress. Contributors are [Jake Pencharz](https://github.com/Jake-Jay/) and 
+Contributors are [Jake Pencharz](https://github.com/Jake-Jay/) and 
 [Abdullah Hayran](https://github.com/abhayran).
 
 
