@@ -83,8 +83,8 @@ This representation can then be manipulated using a styling image.
 
 Styling Image             |  Styled 3D Output
 :-------------------------:|:-------------------------:
-<img src="./assets/wheatfield.jpg" alt="van_gogh" width="200"/>  |  ![](../assets/wheatfield.gif?raw=true)
-<img src="./assets/boccioni.jpg" alt="van_gogh" width="200"/> | ![](../assets/boccioni.gif?raw=true)
+<img src="../assets/wheatfield.jpg?raw=true" alt="van_gogh" width="200"/>  |  ![](../assets/wheatfield.gif?raw=true)
+<img src="../assets/boccioni.jpg?raw=true" alt="van_gogh" width="200"/> | ![](../assets/boccioni.gif?raw=true)
 
 
 One of the main goals was to maintain styling consistency which is invariant to the viewing direction. This is demonstrated below:
