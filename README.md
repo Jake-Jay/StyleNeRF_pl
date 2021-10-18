@@ -1,6 +1,6 @@
 # Style NeRF
 
-![](./assets/title_figure.png)
+![Title Image](../assets/title_figure.png?raw=true) 
 
 An extension of [NeRF](https://arxiv.org/pdf/2003.08934.pdf) (Neural Radiance Fields) to apply 3D style transfer using pytorch ([pytorch-lightning](https://github.com/PyTorchLightning/pytorch-lightning)). The [Neural Style algorithm](https://arxiv.org/abs/1508.06576) is based on the loss network proposed by Leon A. Gatys, Alexander S. Ecker and Matthias Bethge.
 
